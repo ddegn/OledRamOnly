@@ -425,11 +425,20 @@ PUB ScrollBuffer(lines)
     
 PUB SetOled(state, labelPtr, dataPtrPtr, dataQuantity)
 
+  if previousOledState == Header#PAUSE_MONITOR_OLED and {
+    } state <> Header#PAUSE_MONITOR_OLED
+    Spi.ReleaseIo
+  result := previousOledState
   targetOledState := state 
 
   repeat until oledState == targetOledState
 
   longmove(@oledLabelPtr, @labelPtr, 3)
+
+  if state == Header#PAUSE_MONITOR_OLED and {
+    } result <> Header#PAUSE_MONITOR_OLED
+    Spi.InitDisplay  ' display should be initialized by cog using it.
+    
   'oledDataPtr, oledDataQuantity
   
 {PRI OledMonitor : frozenState
@@ -461,14 +470,16 @@ PRI OledMonitor ': frozenState
       
     'frozenState := oledState ' we probably don't need frozenState now
     if oledState <> previousOledState
+      if previousOledState == Header#PAUSE_MONITOR_OLED
+        Spi.InitDisplay
       Spi.clearDisplay
     case oledState
       Header#DEMO_OLED:
         \OledDemo(oledState)
-        Spi.StopScroll
-        D
+        'Spi.StopScroll
+        {D
         Pst.str(string(11, 13, "OledMonitor after Header#DEMO_OLED waiting for press."))
-        PressToContinueC
+        PressToContinueC  }
       Header#MAIN_LOGO_OLED:
         \PropLogoLoop(oledState)
         'LSd
@@ -482,11 +493,12 @@ PRI OledMonitor ': frozenState
       Header#BITMAP_OLED:
       Header#GRAPH_OLED:
       Header#PAUSE_MONITOR_OLED:
-        ' do nothing
+        Spi.ReleaseIo
       Header#CLEAR_OLED:
         if previousOledState <> Header#CLEAR_OLED
           Spi.clearDisplay
         
+  
     'Spi.clearDisplay
     previousOledState := oledState
       
@@ -615,17 +627,17 @@ PRI OledDemo(frozenState) | h, i, j, k, q, r, s, count
     if WatchForChange(@targetOledState, frozenState, 1_000)
       return
     
-    Spi.startscrollleft(0, 31)
+    ''Spi.startscrollleft(0, 31)
 
     if WatchForChange(@targetOledState, frozenState, 4_000)
       return
 
-    Spi.startscrollright(0, 31)
+    ''Spi.startscrollright(0, 31)
     
     if WatchForChange(@targetOledState, frozenState, 4_000)
       return
 
-    Spi.stopscroll
+    ''Spi.stopscroll
     
     if WatchForChange(@targetOledState, frozenState, 1_000)
       return
@@ -635,7 +647,7 @@ PRI OledDemo(frozenState) | h, i, j, k, q, r, s, count
     ''drawn end-to-end
     ''******************************************
     '''Spi.AutoUpdateOn
-    repeat 5
+    {{repeat 5
       Spi.clearDisplay
     ' 'Start in the center of the screen
       j := 64
@@ -668,7 +680,7 @@ PRI OledDemo(frozenState) | h, i, j, k, q, r, s, count
         k := i
       
       if WatchForChange(@targetOledState, frozenState, 10)
-        return
+        return         }}
 
 PRI PropLogoLoop(frozenState)
   
@@ -943,10 +955,10 @@ PUB WatchForChange(localPtr, expectedValue, timeToWait) | localTime
   until cnt - localTime > timeToWait or result
 
   if result
-    D
+    {D
     Pst.str(string(11, 13, "About to abort from WatchForChange"))
     C
-    PressToContinue 
+    PressToContinue }
     abort
               
 PUB GetRandomChar | randomChar
@@ -2179,6 +2191,18 @@ PUB Line(x0, y0, x1, y1, color)
 
   Spi.Line(x0, y0, x1, y1, color)
 
+PUB ClearDisplay
+
+  Spi.ClearDisplay
+  
+PUB InitDisplay
+
+  Spi.InitDisplay
+
+PUB ReleaseIo
+
+  Spi.ReleaseIo
+   
 CON
 
   
